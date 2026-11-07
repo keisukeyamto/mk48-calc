@@ -16,7 +16,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:5px 3px;b
 <section><h2>1 自艦</h2><select id="me"></select><div class="s" id="meinfo"></div></section>
 <section><h2>2 使う武装(発射本数)</h2><div id="ws"></div></section>
 <section><h2>3 敵艦・命中位置</h2><select id="en"></select><div class="s" id="eninfo"></div>
-<div class="w" style="grid-template-columns:84px 1fr"><span class="s">当てる面</span><select id="face"><option value="f">正面(艦首)</option><option value="s" selected>側面(舷側)</option><option value="b">背面(艦尾)</option></select></div><div class="w" id="sidew" style="grid-template-columns:84px 1fr"><span class="s">側面の位置</span><select id="sidepos"><option value="-.25">艦首寄り</option><option value="0" selected>中央</option><option value=".25">艦尾寄り</option></select></div><svg id="sv"></svg><div class="s" id="pinfo"></div>
+<div class="w" style="grid-template-columns:84px 1fr"><span class="s">当てる面</span><select id="face"><option value="f">正面(艦首)</option><option value="s" selected>側面(舷側)</option><option value="b">背面(艦尾)</option></select></div><div class="w" id="sidew" style="grid-template-columns:84px 1fr"><span class="s">側面の位置</span><select id="sidepos"><option value="-.25">艦首寄り</option><option value="0" selected>中央</option><option value=".25">艦尾寄り</option></select></div><svg id="sv"></svg><div class="s">▲ 艦の図をタップ/クリックすると、好きな位置を当てる点にできます(上の選択を変えるとリセット)</div><div class="s" id="pinfo"></div>
 <div class="w" style="margin-top:8px"><span class="s">敵のスポーン保護(%)<br>20秒かけて0→100</span><input type="number" id="sp" value="100" min="0" max="100"></div></section>
 <section><h2>結果</h2><table id="rs"></table><div style="margin-top:10px"><span class="s">合計(敵の最大体力に対して)</span><div class="big" id="tot"></div><div class="s" id="kill"></div></div><div class="s" style="margin-top:14px">▼ 同じ武装・本数で、当てる位置だけ変えるとこうなります</div><table id="cmp"></table><p class="s">見方: 合計が100%になれば撃破です。船の中心に近い所ほど大ダメージで、艦首・艦尾の先端は約6割まで下がります。</p></section>
 <section><h2>ラム計算機(単独)</h2><div class="s">自艦</div><select id="r1"></select><div class="w" style="margin-top:6px"><span class="s">自艦の体力(%)</span><input type="number" id="rh1" value="100" min="1" max="100"></div><div class="s">敵艦</div><select id="r2"></select><div class="w" style="margin-top:6px"><span class="s">敵の体力(%)</span><input type="number" id="rh2" value="100" min="1" max="100"></div><div class="w"><span class="s">敵のスポーン保護(%)<br>100=保護なし</span><input type="number" id="rsp" value="100" min="0" max="100"></div><div class="w" style="grid-template-columns:110px 1fr"><span class="s">敵に当てる位置<br>(自艦の艦首が)</span><select id="rp2"></select></div><div class="w" style="grid-template-columns:110px 1fr"><span class="s">自艦が受ける位置<br>(敵の艦首が)</span><select id="rp1"></select></div><div class="big" id="rrt"></div><div class="s" id="rrk"></div><table id="rrc" style="margin-top:8px"></table></section>
@@ -31,14 +31,15 @@ $('meinfo').textContent=`全長${b.L}m / 体力 ${b.HP.toFixed(2)}`;
 $('ws').innerHTML=Object.entries(b.arms).map(([k,n])=>{const w=D.weapons[k];q[k]=0;
 return`<div class="w"><div>${w.label} <span class="s">${w.sub} ・基礎${w.dmg} ・最大${n}</span></div><select data-k="${k}">${Array.from({length:n+1},(_,j)=>`<option>${j}</option>`).join('')}</select></div>`}).join('')+RR;
 document.querySelectorAll('#ws select').forEach(i=>i.onchange=()=>{if(i.dataset.r)rs=+i.value;else q[i.dataset.k]=+i.value;calc()});calc()}
-function pt(e){const f=$('face').value,L=e.L;return f=='f'?[0,-L/2]:f=='b'?[0,L/2]:[e.W/2,+$('sidepos').value*L]}
+const hw=(e,y)=>{const L=e.L/2,W=e.W/2;if(y>=-.2*L)return W;let a=0,b=1;for(let i=0;i<30;i++){const t=(a+b)/2,yy=(1-t)*(1-t)*(-L)+2*t*(1-t)*(-.5*L)+t*t*(-.2*L);if(yy>y)b=t;else a=t}const t=(a+b)/2;return W*(2*t*(1-t)+t*t)};
+let cp=null;function pt(e){if(cp)return cp;const f=$('face').value,L=e.L;return f=='f'?[0,-L/2]:f=='b'?[0,L/2]:[e.W/2,+$('sidepos').value*L]}
 function draw(){const e=B[$('en').value],R=e.R*1.12,L=e.L/2,W=e.W/2,[px,py]=pt(e),s=$('sv');
 s.setAttribute('viewBox',`${-R} ${-R} ${2*R} ${2*R}`);s.dataset.r=R;
 s.innerHTML=`<circle r="${e.R}" fill="none" stroke="var(--ln)" stroke-dasharray="${R/20}"/><path d="M0 ${-L}Q${W} ${-L*.5} ${W} ${-L*.2}L${W} ${L}L${-W} ${L}L${-W} ${-L*.2}Q${-W} ${-L*.5} 0 ${-L}Z" fill="var(--hull)"/><circle cx="${px}" cy="${py}" r="${R/28}" fill="var(--ac)"/><text x="${-R*.95}" y="${-R*.9}" font-size="${R/12}" fill="var(--mut)">船首↑</text>`}
 
 function calc(){const e=B[$('en').value],[px,py]=pt(e),p=Math.min(1,Math.hypot(px,py)/e.R),sub=e.sub=='Submarine',mn=sub?.8:.6,m=Math.min(1,Math.max(mn,(1-p*p)*(1-mn)+mn)),sp=Math.max(0,Math.min(1,$('sp').value/100));
 draw();$('eninfo').textContent=`全長${e.L}m / 半径${e.R}m / 体力 ${e.HP.toFixed(2)} / 対魚雷耐性 ${Math.round(e.tres*100)}%`;
-$('pinfo').textContent=`船の中心から${(p*e.R).toFixed(1)}m → ダメージ ×${m.toFixed(2)}(${sub?'潜水艦':'水上艦'}は最低×${mn}まで下がる)`;
+$('pinfo').textContent=`${cp?'[自由指定] ':''}船の中心から${(p*e.R).toFixed(1)}m → ダメージ ×${m.toFixed(2)}(${sub?'潜水艦':'水上艦'}は最低×${mn}まで下がる)`;
 let t=0,rows='<tr><th>武装</th><th>1発</th><th>%/発</th><th>本数</th><th>小計%</th></tr>',nh=0;
 for(const[k,n]of Object.entries(q)){if(!n)continue;const w=D.weapons[k],r=w.sub=='Torpedo'?1-e.tres:1,d=w.dmg*m*r*sp,pc=d/e.HP*100;t+=pc*n;nh+=n;
 rows+=`<tr><td>${w.label}${r<1?' <span class="s">耐性×'+r.toFixed(2)+'</span>':''}</td><td>${d.toFixed(3)}</td><td>${pc.toFixed(1)}</td><td>${n}</td><td>${(pc*n).toFixed(1)}</td></tr>`}
@@ -62,5 +63,5 @@ $('rrt').textContent=x.k?x.t.toFixed(1)+'秒':'倒せない';
 $('rrk').textContent=x.k?`敵撃破まで。そのとき自艦の残り体力 ${x.m.toFixed(0)}%`+(x.d?'(同時に自艦も沈む)':''):`自艦が先に沈みます(敵の残り体力 ${Math.max(0,he-x.e).toFixed(0)}%)`;
 let c='<tr><th>当てる位置</th><th>撃破まで</th><th>自艦の残り</th></tr>';for(const[nm,f]of PS){const y=ramSim(a,b,f(b),pm,hm,he,300,sv);c+=`<tr><td>${nm}</td><td>${y.k?y.t.toFixed(1)+'秒':'×'}</td><td>${y.k?y.m.toFixed(0)+'%':'沈没'}</td></tr>`}$('rrc').innerHTML=c}
 ['r1','r2','rp1','rp2'].forEach(i=>$(i).onchange=rcalc);['rh1','rh2','rsp'].forEach(i=>$(i).oninput=rcalc);rcalc();
-$('me').onchange=wl;$('en').onchange=calc;$('face').onchange=()=>{$('sidew').style.display=$('face').value=='s'?'':'none';calc()};$('sidepos').onchange=calc;$('sp').oninput=calc;wl();
+$('me').onchange=wl;$('en').onchange=()=>{cp=null;calc()};$('face').onchange=()=>{cp=null;$('sidew').style.display=$('face').value=='s'?'':'none';calc()};$('sidepos').onchange=()=>{cp=null;calc()};$('sv').onclick=ev=>{const s=$('sv'),e=B[$('en').value],p=s.createSVGPoint();p.x=ev.clientX;p.y=ev.clientY;const c=p.matrixTransform(s.getScreenCTM().inverse()),cl=(v,m)=>Math.max(-m,Math.min(m,v));const y=cl(c.y,e.L/2);cp=[cl(c.x,hw(e,y)),y];calc()};$('sp').oninput=calc;wl();
 </script></body></html>
